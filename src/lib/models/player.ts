@@ -3,7 +3,8 @@ import type { Team } from '@/lib/models/Team'
 
 export type Player = {
   id: string
-  number?: number
+  number: number
+  position: string
   strength: number
   agility: number
   passing: number

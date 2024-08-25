@@ -4,7 +4,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { useSlots, defineProps, computed } from 'vue'
+import { useSlots, computed } from 'vue'
 
 const { slots } = useSlots()
 
