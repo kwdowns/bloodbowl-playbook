@@ -10,5 +10,5 @@ export type Player = {
   passing: number
   armor: number
   skills: Skill[]
-  team: Team
+  teamName: string
 }

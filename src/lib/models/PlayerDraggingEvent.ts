@@ -5,3 +5,7 @@ export type PlayerDraggingEvent = {
   player: Player,
   sourceLocation?: PitchCoordinates
 }
+
+export type PlayerDroppedEvent = PlayerDraggingEvent & {
+  targetLocation: PitchCoordinates
+}

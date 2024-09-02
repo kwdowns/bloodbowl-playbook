@@ -15,9 +15,11 @@
   },
   "dependencies": {
     "pinia": "^2.1.7",
+    "react-dnd-html5-backend": "^16.0.1",
     "uuid": "^10.0.0",
     "vue": "^3.4.29",
     "vue-router": "^4.3.3",
+    "vue3-dnd": "^2.1.0",
     "vuex": "^4.0.2"
   },
   "devDependencies": {

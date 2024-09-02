@@ -5,6 +5,28 @@ import { type Team } from '@/lib/models/Team'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export const useTeamsStore = defineStore('storeTeams', () => {
+  const storeTeams = ref<Team[]>([])
+  const addTeam = (team: Team) => {
+    if(storeTeams.value.some(t => t.teamName === team.teamName)) return;
+    storeTeams.value.push(team);
+  }
+  const addTeams = (teams: Team[]) => {
+    for(const team of teams){
+      addTeam(team);
+    }
+  };
+  const removeTeam = (team: Team) => {
+    storeTeams.value = storeTeams.value.filter(t => t.teamName !== team.teamName);
+  }
+  return {
+    storeTeams,
+    addTeam,
+    addTeams,
+    removeTeam
+  }
+});
+
 export const usePlayerStore = defineStore('players', () => {
   const players = ref<FieldedPlayer[]>([])
   const addPlayer = (player: FieldedPlayer) => {

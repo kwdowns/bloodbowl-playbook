@@ -1,3 +1,9 @@
+import type { Player } from '@/lib/models/Player'
+import type { Team } from '@/lib/models/Team'
+import type { Skill } from '@/lib/models/Skill'
+import { data } from '@/lib/data'
+
+
 interface GetLeagueResponse {
     id: number;
     name: string;
@@ -178,7 +184,7 @@ type LineUp = {
 }
 
 const defaultLeagueName = 'kcbbl-season-14';
-export async function getTourplayLeagueTeams(leagueName: string = defaultLeagueName): Promise<Array<{rosterId:number, teamName: string, teamRace: string}>>{
+export async function getTourplayLeagueTeams(leagueName: string = defaultLeagueName): Promise<Array<{rosterId:number; teamName: string; teamRace: string}>>{
   const leagueResponse = await fetch(`https://tourplay.net/tournament/${leagueName.toLowerCase().replace(' ', '-')}`);
   const leagueJson = await leagueResponse.json();
   const leauge = leagueJson as GetLeagueResponse;
@@ -189,4 +195,25 @@ export async function getTourplayTeam(rosterId: number): Promise<GetTeamResponse
   const teamResponse = await fetch(`https://tourplay.net/roster/${rosterId}`);
   const teamJson = await teamResponse.json();
   return teamJson as GetTeamResponse;
+}
+
+export async function GetTeams(leagueName: string = defaultLeagueName) : Promise<Array<Team>>{
+    const teams = await getTourplayLeagueTeams(leagueName);
+    const getTeams = await Promise.all(teams.map(x => getTourplayTeam(x.rosterId)));
+    return getTeams.map(x => ({
+            coachName: x.player.applicationUser.userNameToShow,
+            teamName: x.teamName,
+            teamColor: x.teamColor,
+            teamRace: x.teamRace,
+            players: x.lineUps.map(y => ({
+                id: y.id.toString(),
+                number: y.number,
+                position: y.position,
+                strength: y.st,
+                agility: y.ag,
+                passing: y.pa,
+                armor: y.av,
+                skills: y.skills.map(z => data.skills.find(a => a.name === z.skillMaster.name) ?? { name: z.skillMaster.name, category: '', description: ''}),
+                teamName: x.teamName
+            }))}));
 }
