@@ -1,5 +1,6 @@
 import { type FieldedPlayer } from '@/lib/models/FieldedPlayer'
 import { type PitchCoordinates } from '@/lib/models/PitchCoordinates'
+import type { Player } from '@/lib/models/Player'
 import { type Team } from '@/lib/models/Team'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
@@ -9,10 +10,18 @@ export const usePlayerStore = defineStore('players', () => {
   const addPlayer = (player: FieldedPlayer) => {
     players.value.push(player)
   }
-  const removePlayer = (id: string) => {
-    const index = players.value.findIndex((p) => p.id === id)
-    if (index !== -1) {
-      players.value.splice(index, 1)
+  const removePlayer = (player: ({playerId: string} | Player)) => {
+    if('playerId' in player) {
+      const index = players.value.findIndex((p) => p.id === player.playerId)
+      if (index !== -1) {
+        players.value.splice(index, 1)
+      }
+    }
+    else{
+      const index = players.value.findIndex((p) => p.id === player.id)
+      if (index !== -1) {
+        players.value.splice(index,1)
+      }
     }
   }
   const movePlayer = ({

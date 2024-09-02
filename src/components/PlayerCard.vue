@@ -29,10 +29,12 @@
 </template>
 
 <script setup lang="ts">
+import type { PitchCoordinates } from '@/lib/models/PitchCoordinates';
 import { type Player } from '@/lib/models/Player'
 import { ref } from 'vue'
 const props = defineProps<{
-  player: Player
+  player: Player,
+  location?: PitchCoordinates
 }>()
 const player = ref(props.player)
 </script>
