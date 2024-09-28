@@ -28,7 +28,7 @@
     </div>
   </div>
   <div
-    class="w-full h-full grid grid-cols-[repeat(15, minmax(0, 1fr))] grid-rows-[repeat(26, minmax(0, 1fr))]"
+    v-bind:class="`w-full h-full grid grid-cols-[repeat(${rows}, minmax(0, 1fr))] grid-rows-[repeat(${ columns }, minmax(0, 1fr))]`"
   >
     <PitchSquare
       v-for="cell in pitchLocations"
@@ -68,11 +68,16 @@ import type { FieldedPlayer } from '@/lib/models/FieldedPlayer'
 import type { PlayerDraggingEvent, PlayerDroppedEvent } from '@/lib/models/PlayerDraggingEvent'
 import type { PitchCoordinates } from '@/lib/models/PitchCoordinates'
 import { GetTeams } from '@/lib/tourplay/tourplayApi'
-
+const columns = 5;
+const rows = 4;
 const pitchLocations = ref(
-  new Array(26 * 15).fill({ row: 0, column: 0 }).map((_, i) => ({
-    row: i % 26,
-    column: Math.floor(i / 26)
+  // new Array(26 * 15).fill({ row: 0, column: 0 }).map((_, i) => ({
+  //   row: i % 26,
+  //   column: Math.floor(i / 26)
+  // }))
+  new Array(columns * rows).fill({ row: 0, column: 0 }).map((_, i) => ({
+    row: i % rows,
+    column: Math.floor(i / columns)
   }))
 )
 
