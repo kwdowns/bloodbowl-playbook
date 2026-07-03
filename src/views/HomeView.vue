@@ -42,6 +42,7 @@
       <aside class="grid w-full gap-3 self-start md:grid-cols-2 xl:w-96 xl:shrink-0 xl:grid-cols-1">
         <AddPlayerForm />
         <SelectedPlayerPanel />
+        <MovementPanel />
         <PassAnalysisPanel />
       </aside>
     </main>
@@ -53,6 +54,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import GamePitch from '@/components/GamePitch.vue'
 import AddPlayerForm from '@/components/panels/AddPlayerForm.vue'
 import BlockAnalysisPanel from '@/components/panels/BlockAnalysisPanel.vue'
+import MovementPanel from '@/components/panels/MovementPanel.vue'
 import OverlayControls from '@/components/panels/OverlayControls.vue'
 import PassAnalysisPanel from '@/components/panels/PassAnalysisPanel.vue'
 import SelectedPlayerPanel from '@/components/panels/SelectedPlayerPanel.vue'
@@ -110,7 +112,7 @@ function isTyping(event: KeyboardEvent): boolean {
 function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     if (store.mode !== 'default') {
-      // First Escape leaves pass / throw mode, a second one deselects.
+      // First Escape leaves move / pass / throw mode, a second one deselects.
       store.setMode('default')
       return
     }
@@ -123,6 +125,7 @@ function onKeydown(event: KeyboardEvent) {
   const key = event.key.toLowerCase()
   if (key === 'p' && store.selectedPlayer) store.toggleMode('pass')
   else if (key === 't' && store.selectedPlayer) store.toggleMode('throwTeammate')
+  else if (key === 'm' && store.selectedPlayer) store.toggleMode('move')
 }
 
 onMounted(() => window.addEventListener('keydown', onKeydown))

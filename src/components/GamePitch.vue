@@ -45,6 +45,8 @@ import PitchSquare from '@/components/PitchSquare.vue'
 import type { SquareViewModel } from '@/components/squareViewModel'
 import { PITCH_COLUMNS, PITCH_ROWS, isAdjacent, samePosition } from '@/lib/models/PitchCoordinates'
 import { assessDodge } from '@/lib/rules/dodge'
+import { RUSH_TARGET } from '@/lib/rules/movement'
+import type { MoveStep } from '@/lib/rules/movement'
 import { passRange, passingLaneSquares } from '@/lib/rules/pass'
 import type { PassRange } from '@/lib/rules/pass'
 import { formatPercent } from '@/lib/format'
@@ -70,10 +72,19 @@ const cursorClass = computed(() => {
   return ''
 })
 
+/** Tooltip for a square on the plotted movement path. */
+function moveStepTitle(step: MoveStep): string {
+  const rolls: string[] = []
+  if (step.isRush) rolls.push(`Rush ${RUSH_TARGET}+`)
+  if (step.dodge) rolls.push(`Dodge ${step.dodge.target}+`)
+  if (!rolls.length) return `Step ${step.stepNumber} — no roll needed`
+  return `Step ${step.stepNumber} — ${rolls.join(', ')} (${formatPercent(step.chance)})`
+}
+
 // The pass arc, drawn over the landscape pitch: display x follows the pitch
 // row, display y follows the pitch column.
 const arc = computed(() => {
-  if (store.mode === 'default') return null
+  if (store.mode !== 'pass' && store.mode !== 'throwTeammate') return null
   const from = store.selectedPlayer
   const to = store.passTargetSquare
   if (!from || !to || samePosition(from, to)) return null
@@ -118,6 +129,9 @@ const squares = computed<SquareViewModel[]>(() => {
       ? passingLaneSquares(selected, passTarget)
       : []
   const interference = store.passAnalysis?.interference
+  const moveGrid = store.moveReachable
+  const moveSteps = store.moveAnalysis?.steps
+  const movePathIndex = new Map(store.movePath.map((s, i) => [`${s.row},${s.column}`, i]))
   const result: SquareViewModel[] = []
 
   for (let column = 1; column <= PITCH_COLUMNS; column++) {
@@ -177,6 +191,33 @@ const squares = computed<SquareViewModel[]>(() => {
         } else {
           square.overlayLabel = '✓'
           square.overlayTitle = 'No dodge needed — this player is not marked'
+        }
+      }
+
+      // Movement mode: the plotted path, then squares still reachable from its end.
+      if (moveGrid) {
+        const pathIndex = movePathIndex.get(`${row},${column}`)
+        if (pathIndex !== undefined) {
+          const step = moveSteps?.[pathIndex]
+          square.overlayColor = step?.isRush
+            ? 'rgba(249, 115, 22, 0.65)'
+            : 'rgba(250, 204, 21, 0.55)'
+          square.overlayLabel = `${pathIndex + 1}`
+          if (step) square.overlayTitle = moveStepTitle(step)
+        } else {
+          const reachable = moveGrid[row - 1][column - 1]
+          if (reachable && reachable.rushesNeeded > 0) {
+            square.overlayColor = 'rgba(249, 115, 22, 0.4)'
+            square.overlayTitle = `Rush (Go For It): ${reachable.rushesNeeded} roll${
+              reachable.rushesNeeded > 1 ? 's' : ''
+            } of ${RUSH_TARGET}+ — ${formatPercent(reachable.chance)} to arrive safely`
+          } else if (reachable) {
+            square.overlayColor = 'rgba(255, 255, 255, 0.22)'
+            square.overlayTitle =
+              reachable.chance < 1
+                ? `Move here — ${formatPercent(reachable.chance)} to arrive safely`
+                : 'Move here'
+          }
         }
       }
 

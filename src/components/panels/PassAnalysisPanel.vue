@@ -1,5 +1,8 @@
 <template>
-  <section v-if="store.mode !== 'default'" class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+  <section
+    v-if="store.mode === 'pass' || store.mode === 'throwTeammate'"
+    class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+  >
     <div class="mb-2 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-slate-700">
         {{ isThrowTeammate ? 'Throw team-mate' : 'Pass analysis' }}

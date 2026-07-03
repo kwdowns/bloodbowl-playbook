@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuid } from 'uuid'
 import type { FieldedPlayer } from '@/lib/models/FieldedPlayer'
@@ -13,12 +13,14 @@ import { summarizeBlock } from '@/lib/rules/blockDice'
 import type { BlockOutcomeSummary } from '@/lib/rules/blockDice'
 import { assessPass, ballLandingMap } from '@/lib/rules/pass'
 import type { BallLandingMap, PassAssessment } from '@/lib/rules/pass'
+import { MAX_RUSHES, assessMovePath, movementGrid, pathTo } from '@/lib/rules/movement'
+import type { MovePathAssessment, MovementGrid } from '@/lib/rules/movement'
 import { controlMaps } from '@/lib/rules/tackleZones'
 import { assessThrowTeammate } from '@/lib/rules/throwTeammate'
 import type { ThrowTeammateAssessment } from '@/lib/rules/throwTeammate'
 
 export type OverlayMode = 'none' | 'offense' | 'defense' | 'net' | 'dodge'
-export type InteractionMode = 'default' | 'pass' | 'throwTeammate'
+export type InteractionMode = 'default' | 'pass' | 'throwTeammate' | 'move'
 
 export interface PlayerTemplate {
   team: Team
@@ -50,6 +52,7 @@ export const usePlayerStore = defineStore('players', () => {
   const hoverSquare = ref<PitchCoordinates | null>(null)
   const pinnedPassTarget = ref<PitchCoordinates | null>(null)
   const showScatter = ref(false)
+  const movePath = ref<PitchCoordinates[]>([])
 
   const selectedPlayer = computed(() =>
     selectedPlayerId.value ? getPlayerById(selectedPlayerId.value) : undefined
@@ -74,8 +77,23 @@ export const usePlayerStore = defineStore('players', () => {
 
   /** Square the pass/throw arc points at: the pinned target, else live hover. */
   const passTargetSquare = computed<PitchCoordinates | null>(() => {
-    if (mode.value === 'default') return null
+    if (mode.value !== 'pass' && mode.value !== 'throwTeammate') return null
     return pinnedPassTarget.value ?? hoverSquare.value
+  })
+
+  /** Squares still reachable from the end of the chosen movement path. */
+  const moveReachable = computed<MovementGrid | undefined>(() => {
+    if (mode.value !== 'move') return undefined
+    const mover = selectedPlayer.value
+    if (!mover) return undefined
+    return movementGrid(players.value, mover, movePath.value)
+  })
+
+  const moveAnalysis = computed<MovePathAssessment | undefined>(() => {
+    if (mode.value !== 'move') return undefined
+    const mover = selectedPlayer.value
+    if (!mover) return undefined
+    return assessMovePath(players.value, mover, movePath.value)
   })
 
   const passAnalysis = computed<PassAssessment | undefined>(() => {
@@ -187,6 +205,7 @@ export const usePlayerStore = defineStore('players', () => {
     if (newMode !== 'default' && !selectedPlayer.value) return
     mode.value = newMode
     pinnedPassTarget.value = null
+    movePath.value = []
     if (newMode !== 'default') {
       blockTargetId.value = null
       placementTemplate.value = null
@@ -201,9 +220,75 @@ export const usePlayerStore = defineStore('players', () => {
     hoverSquare.value = position
   }
 
+  function undoMoveStep() {
+    movePath.value = movePath.value.slice(0, -1)
+  }
+
+  function clearMovePath() {
+    movePath.value = []
+  }
+
+  /** Move the selected player to the end of the plotted path and leave movement mode. */
+  function applyMove() {
+    const mover = selectedPlayer.value
+    const destination = movePath.value[movePath.value.length - 1]
+    if (!mover || !destination) return
+    movePlayer(mover.id, destination)
+    setMode('default')
+  }
+
+  function moveModeClicked(position: PitchCoordinates) {
+    const mover = selectedPlayer.value
+    if (!mover) return
+    if (samePosition(mover, position)) {
+      clearMovePath()
+      return
+    }
+    const index = movePath.value.findIndex((square) => samePosition(square, position))
+    if (index !== -1) {
+      // Clicking the path end steps back one; clicking earlier truncates after it.
+      movePath.value = movePath.value.slice(0, index === movePath.value.length - 1 ? index : index + 1)
+      return
+    }
+    const grid = moveReachable.value
+    if (!grid || !grid[position.row - 1][position.column - 1]) return
+    movePath.value = [...movePath.value, ...pathTo(grid, position)]
+  }
+
+  // Keep the plotted path legal when the roster changes underneath it
+  // (a player edited, added, removed, or moved via the panels).
+  watch(
+    [players, selectedPlayerId],
+    () => {
+      if (mode.value !== 'move' || !movePath.value.length) return
+      const mover = selectedPlayer.value
+      if (!mover) {
+        movePath.value = []
+        return
+      }
+      const budget = mover.movement + MAX_RUSHES
+      let previous: PitchCoordinates = mover
+      for (let i = 0; i < movePath.value.length; i++) {
+        const square = movePath.value[i]
+        const occupant = getPlayerAtLocation(square)
+        if (i >= budget || (occupant && occupant.id !== mover.id) || !isAdjacent(previous, square)) {
+          movePath.value = movePath.value.slice(0, i)
+          return
+        }
+        previous = square
+      }
+    },
+    { deep: true }
+  )
+
   /** Handle a click on a pitch square, routing between place / select / target / move. */
   function squareClicked(position: PitchCoordinates) {
     const occupant = getPlayerAtLocation(position)
+
+    if (mode.value === 'move') {
+      moveModeClicked(position)
+      return
+    }
 
     if (mode.value !== 'default') {
       // In pass / throw mode a click pins (or unpins) the target square.
@@ -251,6 +336,7 @@ export const usePlayerStore = defineStore('players', () => {
     hoverSquare,
     pinnedPassTarget,
     showScatter,
+    movePath,
     selectedPlayer,
     blockTarget,
     blockAnalysis,
@@ -259,6 +345,11 @@ export const usePlayerStore = defineStore('players', () => {
     passAnalysis,
     throwTeammateAnalysis,
     scatterMap,
+    moveReachable,
+    moveAnalysis,
+    undoMoveStep,
+    clearMovePath,
+    applyMove,
     setMode,
     toggleMode,
     setHoverSquare,

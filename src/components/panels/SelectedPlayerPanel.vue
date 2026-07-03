@@ -56,6 +56,18 @@
         type="button"
         class="rounded px-2 py-1 text-xs font-semibold"
         :class="
+          store.mode === 'move'
+            ? 'bg-amber-500 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+        "
+        @click="store.toggleMode('move')"
+      >
+        Move (M)
+      </button>
+      <button
+        type="button"
+        class="rounded px-2 py-1 text-xs font-semibold"
+        :class="
           store.mode === 'pass'
             ? 'bg-emerald-600 text-white'
             : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
@@ -79,7 +91,8 @@
     </div>
 
     <p class="mt-2 text-xs text-slate-500">
-      Click an empty square to move this player. Click an adjacent opponent to analyze a block.
+      Click an empty square to move this player, or use Move mode to plot a step-by-step path.
+      Click an adjacent opponent to analyze a block.
     </p>
   </section>
 </template>
