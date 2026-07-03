@@ -61,12 +61,19 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import { SKILLS, SKILL_NAMES } from '@/lib/models/Skill'
 import { defaultTemplate, usePlayerStore } from '@/stores/playerStore'
 
 const store = usePlayerStore()
 const template = reactive(defaultTemplate('Offense'))
+
+// While placing, form edits (team switch, stats, skills) apply to the next player dropped.
+watch(template, () => {
+  if (store.placementTemplate) {
+    store.placementTemplate = { ...template, skills: [...template.skills] }
+  }
+})
 
 const stats = [
   { key: 'movement', label: 'MA', min: 1, max: 9 },

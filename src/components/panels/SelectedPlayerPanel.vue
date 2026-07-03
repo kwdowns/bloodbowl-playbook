@@ -7,7 +7,7 @@
           :class="player.team === 'Offense' ? 'bg-red-600' : 'bg-sky-600'"
           >{{ player.number }}</span
         >
-        Selected player
+        {{ player.name || 'Selected player' }}
       </h2>
       <button
         type="button"
@@ -17,6 +17,14 @@
         Remove
       </button>
     </div>
+
+    <input
+      v-model.trim="player.name"
+      type="text"
+      placeholder="Custom name (optional)"
+      maxlength="30"
+      class="mb-2 w-full rounded border border-slate-300 px-2 py-1 text-xs text-slate-800"
+    />
 
     <div class="grid grid-cols-5 gap-1.5 text-center">
       <label v-for="stat in stats" :key="stat.key" class="text-[10px] font-medium text-slate-500">
@@ -41,6 +49,33 @@
         <input v-model="player.skills" type="checkbox" :value="skill" />
         {{ skill }}
       </label>
+    </div>
+
+    <div class="mt-2 flex gap-1.5">
+      <button
+        type="button"
+        class="rounded px-2 py-1 text-xs font-semibold"
+        :class="
+          store.mode === 'pass'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+        "
+        @click="store.toggleMode('pass')"
+      >
+        Pass mode (P)
+      </button>
+      <button
+        type="button"
+        class="rounded px-2 py-1 text-xs font-semibold"
+        :class="
+          store.mode === 'throwTeammate'
+            ? 'bg-purple-600 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+        "
+        @click="store.toggleMode('throwTeammate')"
+      >
+        Throw team-mate (T)
+      </button>
     </div>
 
     <p class="mt-2 text-xs text-slate-500">

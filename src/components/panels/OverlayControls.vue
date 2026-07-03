@@ -1,6 +1,8 @@
 <template>
-  <section class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-    <h2 class="mb-2 text-sm font-semibold text-slate-700">Overlay</h2>
+  <section
+    class="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
+  >
+    <h2 class="text-sm font-semibold text-slate-700">Overlay</h2>
     <div class="flex flex-wrap gap-1.5">
       <button
         v-for="option in options"
@@ -18,7 +20,7 @@
         {{ option.label }}
       </button>
     </div>
-    <p v-if="store.overlay === 'dodge'" class="mt-2 text-xs text-slate-500">
+    <p v-if="store.overlay === 'dodge'" class="w-full text-xs text-slate-500">
       Select a player to see the dodge roll needed for each adjacent square.
     </p>
   </section>

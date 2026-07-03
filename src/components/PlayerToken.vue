@@ -31,6 +31,7 @@ const props = defineProps<{
 const tooltip = computed(() => {
   const p = props.player
   const skills = p.skills.length ? ` — ${p.skills.join(', ')}` : ''
-  return `#${p.number} ${p.team} · MA ${p.movement} ST ${p.strength} AG ${p.agility}+ PA ${p.passing}+ AV ${p.armor}+${skills}`
+  const name = p.name ? ` ${p.name}` : ''
+  return `#${p.number}${name} ${p.team} · MA ${p.movement} ST ${p.strength} AG ${p.agility}+ PA ${p.passing}+ AV ${p.armor}+${skills}`
 })
 </script>
