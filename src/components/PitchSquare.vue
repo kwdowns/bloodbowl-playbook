@@ -9,6 +9,11 @@
       v-if="square.overlayColor"
       class="pointer-events-none absolute inset-0"
       :style="{ backgroundColor: square.overlayColor }"
+      :title="square.overlayTitle"
+    ></div>
+    <div
+      v-if="square.passTarget"
+      class="pointer-events-none absolute inset-0 ring-2 ring-inset ring-amber-300"
     ></div>
     <span
       v-if="!square.occupant && square.overlayLabel"

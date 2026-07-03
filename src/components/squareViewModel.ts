@@ -13,4 +13,6 @@ export interface SquareViewModel {
   selected: boolean
   blockTarget: boolean
   targetable: boolean
+  /** Square currently targeted by pass / throw team-mate mode. */
+  passTarget: boolean
 }

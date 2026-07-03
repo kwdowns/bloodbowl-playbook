@@ -1,4 +1,15 @@
-export type SkillName = 'Block' | 'Dodge' | 'Guard' | 'Tackle' | 'Mighty Blow'
+export type SkillName =
+  | 'Block'
+  | 'Dodge'
+  | 'Guard'
+  | 'Tackle'
+  | 'Mighty Blow'
+  | 'Pass'
+  | 'Catch'
+  | 'Throw Team-mate'
+  | 'Right Stuff'
+  | 'Really Stupid'
+  | 'Always Hungry'
 
 export type Skill = {
   name: SkillName
@@ -34,6 +45,39 @@ export const SKILLS: Record<SkillName, Skill> = {
     description:
       'Add +1 to either the Armour roll or the Injury roll when knocking an opponent down.',
     category: 'Strength'
+  },
+  Pass: {
+    name: 'Pass',
+    description: 'Once per turn, re-roll a failed Passing Ability test when making a pass.',
+    category: 'Passing'
+  },
+  Catch: {
+    name: 'Catch',
+    description: 'Once per turn, re-roll a failed Agility test to catch the ball.',
+    category: 'Agility'
+  },
+  'Throw Team-mate': {
+    name: 'Throw Team-mate',
+    description:
+      'This player may throw an adjacent team-mate with Right Stuff instead of the ball.',
+    category: 'Strength'
+  },
+  'Right Stuff': {
+    name: 'Right Stuff',
+    description: 'This player may be thrown by a team-mate with Throw Team-mate.',
+    category: 'Agility'
+  },
+  'Really Stupid': {
+    name: 'Really Stupid',
+    description:
+      'When activated, roll a D6 (+2 if a non-Really Stupid team-mate is adjacent). On a modified 1-3 the player loses their activation.',
+    category: 'Trait'
+  },
+  'Always Hungry': {
+    name: 'Always Hungry',
+    description:
+      'When throwing a team-mate, on a D6 roll of 1 this player tries to eat them: a further 1 means they are eaten; otherwise the team-mate squirms free and the throw is fumbled.',
+    category: 'Trait'
   }
 }
 
