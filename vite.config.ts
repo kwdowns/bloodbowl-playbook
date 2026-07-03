@@ -17,6 +17,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
-  publicDir: '/bloodbowl-playbook/'
+  // Serve from a subpath when deployed to GitHub Pages, from the root in dev.
+  base: process.env.NODE_ENV === 'production' ? '/bloodbowl-playbook/' : '/'
 })
 

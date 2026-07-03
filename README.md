@@ -1,45 +1,34 @@
-# bloodbowl-playbook
+# Blood Bowl Playbook
 
-This template should help get you started developing with Vue 3 in Vite.
+An interactive tool for Blood Bowl players to set up board scenarios and analyze their
+options. Place players from both teams on the pitch, then:
 
-## Recommended IDE Setup
+- **Block analysis** — select a player and click an adjacent opponent to see the block
+  dice count (1D/2D/3D and who chooses), the assists on each side, and the percentage
+  chance of each block result. Block, Dodge, Guard and Tackle are factored into assists
+  and outcomes, and summary stats show knockdown, push, and turnover odds.
+- **Tackle-zone overlays** — visualize how many squares each team is controlling: red
+  zones, blue zones, or the net control map (red minus blue per square).
+- **Dodge overlay** — with a player selected, every adjacent square shows the dodge
+  target number needed to move there (with Dodge re-roll odds in the tooltip).
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+Built with Vue 3, Pinia, Tailwind CSS and Vite. The rules logic lives in
+`src/lib/rules/` and is covered by Vitest unit tests.
 
-## Type Support for `.vue` Imports in TS
+## Usage
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+- Configure stats/skills in **Add players**, hit **Place on pitch**, and click empty
+  squares to drop players. Press <kbd>Esc</kbd> or **Done placing** to stop.
+- Click a player to select it; click an empty square to move it.
+- Click an adjacent opponent to open the block analysis; click again to dismiss.
+- Use the **Overlay** buttons to switch visualizations.
 
-## Customize configuration
-
-See [Vite Configuration Reference](https://vitejs.dev/config/).
-
-## Project Setup
+## Development
 
 ```sh
 npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Type-Check, Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Run Unit Tests with [Vitest](https://vitest.dev/)
-
-```sh
-npm run test:unit
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
+npm run dev        # hot-reload dev server
+npm run test:unit  # rules engine tests (Vitest)
+npm run build      # type-check + production build
+npm run lint       # ESLint
 ```
