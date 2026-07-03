@@ -51,7 +51,19 @@
       </label>
     </div>
 
-    <div class="mt-2 flex gap-1.5">
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      <button
+        type="button"
+        class="rounded px-2 py-1 text-xs font-semibold"
+        :class="
+          store.mode === 'move'
+            ? 'bg-sky-600 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+        "
+        @click="store.toggleMode('move')"
+      >
+        Move mode (M)
+      </button>
       <button
         type="button"
         class="rounded px-2 py-1 text-xs font-semibold"
@@ -79,7 +91,8 @@
     </div>
 
     <p class="mt-2 text-xs text-slate-500">
-      Click an empty square to move this player. Click an adjacent opponent to analyze a block.
+      Click an empty square to move this player, or use Move mode to plan a path with dodges and
+      rushes. Click an adjacent opponent to analyze a block.
     </p>
   </section>
 </template>

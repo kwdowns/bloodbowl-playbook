@@ -9,11 +9,13 @@ export function makePlayer(
   team: Team,
   row: number,
   column: number,
-  overrides: Partial<Pick<FieldedPlayer, 'strength' | 'agility'>> & { skills?: SkillName[] } = {}
+  overrides: Partial<Pick<FieldedPlayer, 'strength' | 'agility' | 'movement'>> & {
+    skills?: SkillName[]
+  } = {}
 ): FieldedPlayer {
   return {
     id: `player-${nextId++}`,
-    movement: 6,
+    movement: overrides.movement ?? 6,
     strength: overrides.strength ?? 3,
     agility: overrides.agility ?? 3,
     passing: 4,

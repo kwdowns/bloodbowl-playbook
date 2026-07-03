@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuid } from 'uuid'
 import type { FieldedPlayer } from '@/lib/models/FieldedPlayer'
@@ -13,12 +13,14 @@ import { summarizeBlock } from '@/lib/rules/blockDice'
 import type { BlockOutcomeSummary } from '@/lib/rules/blockDice'
 import { assessPass, ballLandingMap } from '@/lib/rules/pass'
 import type { BallLandingMap, PassAssessment } from '@/lib/rules/pass'
+import { assessMovePath, maxRushes, reachableSquares } from '@/lib/rules/movement'
+import type { MovePathAssessment, ReachabilityGrid } from '@/lib/rules/movement'
 import { controlMaps } from '@/lib/rules/tackleZones'
 import { assessThrowTeammate } from '@/lib/rules/throwTeammate'
 import type { ThrowTeammateAssessment } from '@/lib/rules/throwTeammate'
 
 export type OverlayMode = 'none' | 'offense' | 'defense' | 'net' | 'dodge'
-export type InteractionMode = 'default' | 'pass' | 'throwTeammate'
+export type InteractionMode = 'default' | 'pass' | 'throwTeammate' | 'move'
 
 export interface PlayerTemplate {
   team: Team
@@ -50,6 +52,10 @@ export const usePlayerStore = defineStore('players', () => {
   const hoverSquare = ref<PitchCoordinates | null>(null)
   const pinnedPassTarget = ref<PitchCoordinates | null>(null)
   const showScatter = ref(false)
+  /** Planned move path: each entry is one square stepped, in order. */
+  const movePath = ref<PitchCoordinates[]>([])
+  /** How many Rushes the move planner may spend (clamped to the mover's max). */
+  const plannedRushes = ref(2)
 
   const selectedPlayer = computed(() =>
     selectedPlayerId.value ? getPlayerById(selectedPlayerId.value) : undefined
@@ -107,6 +113,40 @@ export const usePlayerStore = defineStore('players', () => {
       return throwTeammateAnalysis.value.landing.map
     }
     return undefined
+  })
+
+  /** Total squares the mover may spend: MA plus the allowed Rushes. */
+  const moveStepLimit = computed(() => {
+    const mover = selectedPlayer.value
+    if (!mover) return 0
+    return mover.movement + Math.min(plannedRushes.value, maxRushes(mover))
+  })
+
+  /** Last square of the planned path, or the mover's own square when empty. */
+  const movePathEnd = computed<PitchCoordinates | null>(() => {
+    const mover = selectedPlayer.value
+    if (!mover) return null
+    const last = movePath.value[movePath.value.length - 1]
+    return last ?? { row: mover.row, column: mover.column }
+  })
+
+  const moveAnalysis = computed<MovePathAssessment | undefined>(() => {
+    const mover = selectedPlayer.value
+    if (mode.value !== 'move' || !mover || movePath.value.length === 0) return undefined
+    return assessMovePath(players.value, mover, movePath.value)
+  })
+
+  /** Best route to every square still reachable from the planned path's end. */
+  const moveReachable = computed<ReachabilityGrid | undefined>(() => {
+    const mover = selectedPlayer.value
+    const start = movePathEnd.value
+    if (mode.value !== 'move' || !mover || !start) return undefined
+    return reachableSquares(players.value, mover, start, movePath.value.length, moveStepLimit.value)
+  })
+
+  // Reducing the allowed rushes (or the mover's MA) invalidates the tail of the path.
+  watch(moveStepLimit, (limit) => {
+    if (movePath.value.length > limit) movePath.value = movePath.value.slice(0, limit)
   })
 
   function getPlayerAtLocation(position: PitchCoordinates): FieldedPlayer | undefined {
@@ -187,6 +227,10 @@ export const usePlayerStore = defineStore('players', () => {
     if (newMode !== 'default' && !selectedPlayer.value) return
     mode.value = newMode
     pinnedPassTarget.value = null
+    movePath.value = []
+    if (newMode === 'move' && selectedPlayer.value) {
+      plannedRushes.value = maxRushes(selectedPlayer.value)
+    }
     if (newMode !== 'default') {
       blockTargetId.value = null
       placementTemplate.value = null
@@ -201,9 +245,53 @@ export const usePlayerStore = defineStore('players', () => {
     hoverSquare.value = position
   }
 
+  /** Handle a click in move-planner mode: extend, rewind, or clear the path. */
+  function moveSquareClicked(position: PitchCoordinates, occupant: FieldedPlayer | undefined) {
+    const mover = selectedPlayer.value
+    if (!mover) return
+
+    // Clicking the mover clears the plan; other occupied squares are unreachable.
+    if (occupant) {
+      if (occupant.id === mover.id) movePath.value = []
+      return
+    }
+
+    const index = movePath.value.findIndex((square) => samePosition(square, position))
+    if (index !== -1) {
+      // Clicking the last planned square undoes it; an earlier one rewinds to it.
+      movePath.value = movePath.value.slice(0, index === movePath.value.length - 1 ? index : index + 1)
+      return
+    }
+
+    const route = moveReachable.value?.[position.row - 1][position.column - 1]
+    if (route) movePath.value = [...movePath.value, ...route.path]
+  }
+
+  /** Move the player to the end of the planned path and leave move mode. */
+  function applyMovePath() {
+    const mover = selectedPlayer.value
+    const destination = movePath.value[movePath.value.length - 1]
+    if (!mover || !destination) return
+    movePlayer(mover.id, destination)
+    setMode('default')
+  }
+
+  function undoMoveStep() {
+    movePath.value = movePath.value.slice(0, -1)
+  }
+
+  function clearMovePath() {
+    movePath.value = []
+  }
+
   /** Handle a click on a pitch square, routing between place / select / target / move. */
   function squareClicked(position: PitchCoordinates) {
     const occupant = getPlayerAtLocation(position)
+
+    if (mode.value === 'move') {
+      moveSquareClicked(position, occupant)
+      return
+    }
 
     if (mode.value !== 'default') {
       // In pass / throw mode a click pins (or unpins) the target square.
@@ -251,6 +339,12 @@ export const usePlayerStore = defineStore('players', () => {
     hoverSquare,
     pinnedPassTarget,
     showScatter,
+    movePath,
+    plannedRushes,
+    moveStepLimit,
+    movePathEnd,
+    moveAnalysis,
+    moveReachable,
     selectedPlayer,
     blockTarget,
     blockAnalysis,
@@ -273,6 +367,9 @@ export const usePlayerStore = defineStore('players', () => {
     startPlacing,
     stopPlacing,
     selectPlayer,
-    squareClicked
+    squareClicked,
+    applyMovePath,
+    undoMoveStep,
+    clearMovePath
   }
 })

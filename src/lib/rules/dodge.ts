@@ -2,7 +2,6 @@ import type { FieldedPlayer } from '@/lib/models/FieldedPlayer'
 import { hasSkill } from '@/lib/models/Player'
 import { isAdjacent } from '@/lib/models/PitchCoordinates'
 import type { PitchCoordinates } from '@/lib/models/PitchCoordinates'
-import { markingOpponents } from '@/lib/rules/tackleZones'
 
 export interface DodgeAssessment {
   /** True when leaving the current square requires a Dodge test at all. */
@@ -17,17 +16,21 @@ export interface DodgeAssessment {
 }
 
 /**
- * Assess the dodge for `player` moving from their current square into `destination`.
- * A Dodge test is only required when the player starts the move marked by one or
- * more opponents. The test is the player's Agility, modified by -1 for each
- * opposing player marking the destination square.
+ * Assess the dodge for `player` moving from `from` (their current square by
+ * default) into `destination`. A Dodge test is only required when the square
+ * being left is marked by one or more opponents. The test is the player's
+ * Agility, modified by -1 for each opposing player marking the destination
+ * square.
  */
 export function assessDodge(
   players: FieldedPlayer[],
   player: FieldedPlayer,
-  destination: PitchCoordinates
+  destination: PitchCoordinates,
+  from: PitchCoordinates = player
 ): DodgeAssessment {
-  const markers = markingOpponents(players, player)
+  const markers = players.filter(
+    (other) => other.team !== player.team && isAdjacent(other, from)
+  )
   const required = markers.length > 0
 
   const destinationMarkers = players.filter(

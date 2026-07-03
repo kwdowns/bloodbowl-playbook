@@ -16,6 +16,55 @@
       </div>
 
       <svg
+        v-if="movePathLine"
+        class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+      >
+        <polyline :points="movePathLine" class="move-path-glow" />
+        <polyline :points="movePathLine" class="move-path-line" />
+      </svg>
+
+      <svg
+        v-if="assistArrows.length"
+        class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+      >
+        <defs>
+          <marker
+            v-for="(color, team) in TEAM_ARROW_COLORS"
+            :id="`assist-arrowhead-${team}`"
+            :key="team"
+            markerWidth="6"
+            markerHeight="6"
+            refX="4.5"
+            refY="3"
+            orient="auto"
+          >
+            <path d="M0,0 L6,3 L0,6 Z" :fill="color" />
+          </marker>
+        </defs>
+        <g v-for="arrow in assistArrows" :key="arrow.key">
+          <line
+            :x1="arrow.x1"
+            :y1="arrow.y1"
+            :x2="arrow.x2"
+            :y2="arrow.y2"
+            class="assist-arrow-glow"
+            :stroke="arrow.color"
+          />
+          <line
+            :x1="arrow.x1"
+            :y1="arrow.y1"
+            :x2="arrow.x2"
+            :y2="arrow.y2"
+            class="assist-arrow-line"
+            :stroke="arrow.color"
+            :marker-end="`url(#assist-arrowhead-${arrow.team})`"
+          >
+            <title>{{ arrow.title }}</title>
+          </line>
+        </g>
+      </svg>
+
+      <svg
         v-if="arc"
         class="pass-arc pointer-events-none absolute inset-0 h-full w-full overflow-visible"
         :style="{ color: arc.color }"
@@ -42,9 +91,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import PitchSquare from '@/components/PitchSquare.vue'
+import type { FieldedPlayer } from '@/lib/models/FieldedPlayer'
 import type { SquareViewModel } from '@/components/squareViewModel'
 import { PITCH_COLUMNS, PITCH_ROWS, isAdjacent, samePosition } from '@/lib/models/PitchCoordinates'
 import { assessDodge } from '@/lib/rules/dodge'
+import { RUSH_TARGET } from '@/lib/rules/movement'
 import { passRange, passingLaneSquares } from '@/lib/rules/pass'
 import type { PassRange } from '@/lib/rules/pass'
 import { formatPercent } from '@/lib/format'
@@ -64,6 +115,11 @@ const RANGE_COLORS: Record<PassRange, string> = {
   'Out of Range': '#94a3b8'
 }
 
+const TEAM_ARROW_COLORS = {
+  Offense: '#f87171',
+  Defense: '#38bdf8'
+} as const
+
 const cursorClass = computed(() => {
   if (store.placementTemplate) return 'cursor-crosshair'
   if (store.mode !== 'default') return 'cursor-cell'
@@ -73,7 +129,7 @@ const cursorClass = computed(() => {
 // The pass arc, drawn over the landscape pitch: display x follows the pitch
 // row, display y follows the pitch column.
 const arc = computed(() => {
-  if (store.mode === 'default') return null
+  if (store.mode !== 'pass' && store.mode !== 'throwTeammate') return null
   const from = store.selectedPlayer
   const to = store.passTargetSquare
   if (!from || !to || samePosition(from, to)) return null
@@ -89,10 +145,60 @@ const arc = computed(() => {
   return { path, color }
 })
 
+// Assist arrows for the current block: each offensive assist points at the
+// defender, each defensive assist points at the attacker. Drawn over the
+// landscape pitch (display x follows the pitch row, display y the pitch
+// column), trimmed at both ends so the tokens stay readable.
+const assistArrows = computed(() => {
+  const analysis = store.blockAnalysis
+  if (!analysis) return []
+  const { attacker, defender, offensiveAssists, defensiveAssists } = analysis.assessment
+
+  function arrowsToward(assists: FieldedPlayer[], target: FieldedPlayer, label: string) {
+    return assists.map((assist) => {
+      const x1 = (assist.row - 0.5) * CELL
+      const y1 = (assist.column - 0.5) * CELL
+      const x2 = (target.row - 0.5) * CELL
+      const y2 = (target.column - 0.5) * CELL
+      const length = Math.hypot(x2 - x1, y2 - y1)
+      const ux = (x2 - x1) / length
+      const uy = (y2 - y1) / length
+      // Start at the assisting token's edge, stop short of the target token.
+      const startOffset = 9
+      const endOffset = 15
+      return {
+        key: `${assist.id}-${target.id}`,
+        x1: x1 + ux * startOffset,
+        y1: y1 + uy * startOffset,
+        x2: x2 - ux * endOffset,
+        y2: y2 - uy * endOffset,
+        team: assist.team,
+        color: TEAM_ARROW_COLORS[assist.team],
+        title: `#${assist.number} ${label}`
+      }
+    })
+  }
+
+  return [
+    ...arrowsToward(offensiveAssists, defender, 'assists the block'),
+    ...arrowsToward(defensiveAssists, attacker, 'assists the defender')
+  ]
+})
+
+// The planned move path, drawn square-center to square-center over the pitch
+// (display x follows the pitch row, display y the pitch column).
+const movePathLine = computed(() => {
+  const mover = store.selectedPlayer
+  if (store.mode !== 'move' || !mover || store.movePath.length === 0) return null
+  return [{ row: mover.row, column: mover.column }, ...store.movePath]
+    .map((square) => `${(square.row - 0.5) * CELL},${(square.column - 0.5) * CELL}`)
+    .join(' ')
+})
+
 function zoneClass(row: number, column: number): string {
-  if (row === 1 || row === PITCH_ROWS) return 'bg-emerald-800'
-  if (column <= 4 || column >= PITCH_COLUMNS - 3) return 'bg-emerald-700'
-  return 'bg-emerald-600'
+  if (row === 1 || row === PITCH_ROWS) return 'bg-emerald-700'
+  if (column <= 4 || column >= PITCH_COLUMNS - 3) return 'bg-emerald-600'
+  return 'bg-emerald-500'
 }
 
 function zoneOverlay(count: number, rgb: string, prefix: string) {
@@ -111,7 +217,19 @@ const squares = computed<SquareViewModel[]>(() => {
   const { offense, defense, net } = store.zones
   const selected = store.selectedPlayer
   const placing = Boolean(store.placementTemplate)
-  const passTarget = store.passTargetSquare
+  const passTarget =
+    store.mode === 'pass' || store.mode === 'throwTeammate' ? store.passTargetSquare : null
+  const moveSteps = store.moveAnalysis?.steps
+  const pathChance = store.moveAnalysis?.successChance ?? 1
+  const moveStepBySquare = new Map(
+    store.mode === 'move'
+      ? store.movePath.map((square, index): [string, number] => [
+          `${square.row},${square.column}`,
+          index
+        ])
+      : []
+  )
+  const reachable = store.mode === 'move' ? store.moveReachable : undefined
   const scatter = store.scatterMap
   const lane =
     store.mode === 'pass' && selected && passTarget && !isAdjacent(selected, passTarget)
@@ -180,6 +298,41 @@ const squares = computed<SquareViewModel[]>(() => {
         }
       }
 
+      // Move planner: the planned path with its rolls, and reachable squares.
+      if (store.mode === 'move' && selected) {
+        const stepIndex = moveStepBySquare.get(`${row},${column}`)
+        if (stepIndex !== undefined && moveSteps) {
+          const step = moveSteps[stepIndex]
+          const rolls: string[] = []
+          if (step.rush) rolls.push(`Rush ${RUSH_TARGET}+`)
+          if (step.dodge) {
+            rolls.push(
+              `Dodge ${step.dodge.target}+${step.dodge.destinationMarkers ? ` (${step.dodge.destinationMarkers} marking)` : ''}`
+            )
+          }
+          square.onMovePath = true
+          square.overlayColor =
+            rolls.length > 0 ? 'rgba(251, 191, 36, 0.4)' : 'rgba(56, 189, 248, 0.35)'
+          square.overlayLabel = step.dodge
+            ? `${step.dodge.target}+`
+            : step.rush
+              ? `${RUSH_TARGET}+`
+              : `${step.stepNumber}`
+          square.overlayTitle = `Step ${step.stepNumber}${rolls.length ? ` — ${rolls.join(', ')}` : ' — no roll needed'}`
+        } else if (!occupant) {
+          const route = reachable?.[row - 1][column - 1]
+          if (route) {
+            const totalChance = pathChance * route.chance
+            square.overlayColor =
+              route.rushes > 0 ? 'rgba(251, 191, 36, 0.2)' : 'rgba(255, 255, 255, 0.22)'
+            square.overlayTitle = `${route.steps} square${route.steps === 1 ? '' : 's'}${
+              route.rushes > 0 ? ` (${route.rushes} rush${route.rushes === 1 ? '' : 'es'})` : ''
+            } — best route ${formatPercent(totalChance)}`
+            if (totalChance < 0.999) square.overlayLabel = formatPercent(totalChance)
+          }
+        }
+      }
+
       // Passing lane and the best-placed interferer, in pass mode.
       if (lane.some((s) => samePosition(s, square))) {
         if (occupant && interference && occupant.id === interference.interferer.id) {
@@ -230,5 +383,34 @@ const squares = computed<SquareViewModel[]>(() => {
   to {
     stroke-dashoffset: -14;
   }
+}
+
+.assist-arrow-line {
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.assist-arrow-glow {
+  stroke-width: 6;
+  stroke-linecap: round;
+  opacity: 0.3;
+}
+
+.move-path-line {
+  fill: none;
+  stroke: #7dd3fc;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 6 5;
+}
+
+.move-path-glow {
+  fill: none;
+  stroke: #0ea5e9;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.3;
 }
 </style>

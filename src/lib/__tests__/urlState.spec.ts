@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { FieldedPlayer } from '@/lib/models/FieldedPlayer'
-import { decodePitchState, encodePitchState } from '@/lib/urlState'
+import {
+  decodePitchState,
+  decodeViewState,
+  emptyViewState,
+  encodePitchState,
+  encodeViewState
+} from '@/lib/urlState'
+import type { ViewState } from '@/lib/urlState'
 
 const player = (overrides: Partial<FieldedPlayer> = {}): FieldedPlayer => ({
   id: 'test-id',
@@ -67,5 +74,81 @@ describe('pitch URL state', () => {
     const offPitch = player({ row: 99 })
     const stacked = player({ team: 'Defense' })
     expect(decodePitchState(encodePitchState([player(), offPitch, stacked]))).toHaveLength(1)
+  })
+})
+
+describe('view URL state', () => {
+  const view = (overrides: Partial<ViewState> = {}): ViewState => ({
+    ...emptyViewState(),
+    ...overrides
+  })
+
+  it('encodes an empty view as an empty string', () => {
+    expect(encodeViewState(view())).toBe('')
+    expect(decodeViewState('')).toEqual(view())
+  })
+
+  it('round-trips a block setup with an overlay', () => {
+    const state = view({ selectedIndex: 0, blockTargetIndex: 3, overlay: 'net' })
+    expect(decodeViewState(encodeViewState(state))).toEqual(state)
+  })
+
+  it('round-trips a pass setup with a pinned target and scatter', () => {
+    const state = view({
+      selectedIndex: 2,
+      mode: 'pass',
+      passTarget: { row: 12, column: 7 },
+      showScatter: true
+    })
+    expect(decodeViewState(encodeViewState(state))).toEqual(state)
+  })
+
+  it('round-trips a throw team-mate setup', () => {
+    const state = view({ selectedIndex: 1, mode: 'throwTeammate', passTarget: { row: 20, column: 3 } })
+    expect(decodeViewState(encodeViewState(state))).toEqual(state)
+  })
+
+  it('round-trips a move plan with rushes and a path', () => {
+    const state = view({
+      selectedIndex: 4,
+      mode: 'move',
+      plannedRushes: 1,
+      movePath: [
+        { row: 5, column: 8 },
+        { row: 6, column: 9 },
+        { row: 7, column: 9 }
+      ]
+    })
+    expect(decodeViewState(encodeViewState(state))).toEqual(state)
+  })
+
+  it('omits fields irrelevant to the active mode', () => {
+    const encoded = encodeViewState(
+      view({
+        selectedIndex: 0,
+        mode: 'move',
+        blockTargetIndex: 2,
+        passTarget: { row: 5, column: 5 },
+        showScatter: true,
+        movePath: [{ row: 5, column: 9 }],
+        plannedRushes: 2
+      })
+    )
+    expect(decodeViewState(encoded)).toEqual(
+      view({ selectedIndex: 0, mode: 'move', movePath: [{ row: 5, column: 9 }], plannedRushes: 2 })
+    )
+  })
+
+  it('omits everything selection-dependent without a selection', () => {
+    const encoded = encodeViewState(
+      view({ blockTargetIndex: 1, mode: 'pass', overlay: 'dodge', showScatter: true })
+    )
+    expect(decodeViewState(encoded)).toEqual(view({ overlay: 'dodge' }))
+  })
+
+  it('drops malformed tokens but keeps valid ones', () => {
+    expect(decodeViewState('s1_bx_mz_t99.99_w5.8.6_garbage_od')).toEqual(
+      view({ selectedIndex: 1, overlay: 'defense' })
+    )
   })
 })

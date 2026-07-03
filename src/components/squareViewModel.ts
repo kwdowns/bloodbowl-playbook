@@ -15,4 +15,6 @@ export interface SquareViewModel {
   targetable: boolean
   /** Square currently targeted by pass / throw team-mate mode. */
   passTarget: boolean
+  /** Square on the planned path in move mode. */
+  onMovePath?: boolean
 }

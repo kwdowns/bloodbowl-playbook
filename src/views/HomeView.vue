@@ -42,6 +42,7 @@
       <aside class="grid w-full gap-3 self-start md:grid-cols-2 xl:w-96 xl:shrink-0 xl:grid-cols-1">
         <AddPlayerForm />
         <SelectedPlayerPanel />
+        <MoveAnalysisPanel />
         <PassAnalysisPanel />
       </aside>
     </main>
@@ -49,45 +50,111 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import GamePitch from '@/components/GamePitch.vue'
 import AddPlayerForm from '@/components/panels/AddPlayerForm.vue'
 import BlockAnalysisPanel from '@/components/panels/BlockAnalysisPanel.vue'
+import MoveAnalysisPanel from '@/components/panels/MoveAnalysisPanel.vue'
 import OverlayControls from '@/components/panels/OverlayControls.vue'
 import PassAnalysisPanel from '@/components/panels/PassAnalysisPanel.vue'
 import SelectedPlayerPanel from '@/components/panels/SelectedPlayerPanel.vue'
-import { decodePitchState, encodePitchState } from '@/lib/urlState'
+import type { FieldedPlayer } from '@/lib/models/FieldedPlayer'
+import type { PitchCoordinates } from '@/lib/models/PitchCoordinates'
+import { isAdjacent, samePosition } from '@/lib/models/PitchCoordinates'
+import { decodePitchState, decodeViewState, encodePitchState, encodeViewState } from '@/lib/urlState'
+import type { ViewState } from '@/lib/urlState'
 import { usePlayerStore } from '@/stores/playerStore'
 
 const store = usePlayerStore()
 const copied = ref(false)
 
-// --- Pitch state <-> URL query string ---
+// --- Pitch + view state <-> URL query string ---
 
 const PITCH_PARAM = 'pitch'
+const VIEW_PARAM = 'view'
 
 onMounted(() => {
-  const encoded = new URLSearchParams(window.location.search).get(PITCH_PARAM)
-  if (encoded) store.players = decodePitchState(encoded)
+  const params = new URLSearchParams(window.location.search)
+  const encodedPitch = params.get(PITCH_PARAM)
+  if (encodedPitch) store.players = decodePitchState(encodedPitch)
+  const encodedView = params.get(VIEW_PARAM)
+  if (encodedView) applyViewState(decodeViewState(encodedView))
 })
 
-watch(
-  () => store.players,
-  (players) => {
-    const params = new URLSearchParams(window.location.search)
-    const encoded = encodePitchState(players)
-    if (encoded) params.set(PITCH_PARAM, encoded)
-    else params.delete(PITCH_PARAM)
-    const query = params.toString()
-    // replaceState keeps vue-router's history entry intact and avoids history spam.
-    window.history.replaceState(
-      window.history.state,
-      '',
-      `${window.location.pathname}${query ? `?${query}` : ''}`
-    )
-  },
-  { deep: true }
+/** Restore a decoded view state, dropping anything the current roster can't support. */
+function applyViewState(view: ViewState) {
+  store.overlay = view.overlay
+  const selected = view.selectedIndex === null ? undefined : store.players[view.selectedIndex]
+  if (!selected) return
+  store.selectPlayer(selected.id)
+
+  if (view.mode === 'default') {
+    const target = view.blockTargetIndex === null ? undefined : store.players[view.blockTargetIndex]
+    if (target && target.team !== selected.team && isAdjacent(selected, target)) {
+      store.blockTargetId = target.id
+    }
+    return
+  }
+
+  store.setMode(view.mode)
+  if (view.mode === 'move') {
+    if (view.plannedRushes !== null) store.plannedRushes = view.plannedRushes
+    store.movePath = validMovePrefix(selected, view.movePath)
+  } else {
+    if (view.passTarget && !samePosition(selected, view.passTarget)) {
+      store.pinnedPassTarget = view.passTarget
+    }
+    store.showScatter = view.showScatter
+  }
+}
+
+/** Longest leading stretch of the path that is step-by-step legal for the mover. */
+function validMovePrefix(mover: FieldedPlayer, path: PitchCoordinates[]): PitchCoordinates[] {
+  const valid: PitchCoordinates[] = []
+  let previous: PitchCoordinates = { row: mover.row, column: mover.column }
+  for (const step of path) {
+    if (valid.length >= store.moveStepLimit) break
+    if (!isAdjacent(previous, step) || store.getPlayerAtLocation(step)) break
+    valid.push(step)
+    previous = step
+  }
+  return valid
+}
+
+function playerIndex(id: string | null): number | null {
+  if (!id) return null
+  const index = store.players.findIndex((p) => p.id === id)
+  return index === -1 ? null : index
+}
+
+const encodedPitch = computed(() => encodePitchState(store.players))
+const encodedView = computed(() =>
+  encodeViewState({
+    selectedIndex: playerIndex(store.selectedPlayerId),
+    blockTargetIndex: playerIndex(store.blockTargetId),
+    mode: store.mode,
+    overlay: store.overlay,
+    passTarget: store.pinnedPassTarget,
+    showScatter: store.showScatter,
+    plannedRushes: store.plannedRushes,
+    movePath: store.movePath
+  })
 )
+
+watch([encodedPitch, encodedView], ([pitch, view]) => {
+  const params = new URLSearchParams(window.location.search)
+  if (pitch) params.set(PITCH_PARAM, pitch)
+  else params.delete(PITCH_PARAM)
+  if (view) params.set(VIEW_PARAM, view)
+  else params.delete(VIEW_PARAM)
+  const query = params.toString()
+  // replaceState keeps vue-router's history entry intact and avoids history spam.
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${window.location.pathname}${query ? `?${query}` : ''}`
+  )
+})
 
 async function copyShareLink() {
   await navigator.clipboard.writeText(window.location.href)
@@ -123,6 +190,7 @@ function onKeydown(event: KeyboardEvent) {
   const key = event.key.toLowerCase()
   if (key === 'p' && store.selectedPlayer) store.toggleMode('pass')
   else if (key === 't' && store.selectedPlayer) store.toggleMode('throwTeammate')
+  else if (key === 'm' && store.selectedPlayer) store.toggleMode('move')
 }
 
 onMounted(() => window.addEventListener('keydown', onKeydown))

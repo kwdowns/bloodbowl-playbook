@@ -15,6 +15,10 @@
       v-if="square.passTarget"
       class="pointer-events-none absolute inset-0 ring-2 ring-inset ring-amber-300"
     ></div>
+    <div
+      v-if="square.onMovePath"
+      class="pointer-events-none absolute inset-0 ring-2 ring-inset ring-sky-300"
+    ></div>
     <span
       v-if="!square.occupant && square.overlayLabel"
       class="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white drop-shadow"

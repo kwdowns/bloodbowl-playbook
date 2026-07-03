@@ -6,6 +6,8 @@ export type SkillName =
   | 'Mighty Blow'
   | 'Pass'
   | 'Catch'
+  | 'Sprint'
+  | 'Sure Feet'
   | 'Throw Team-mate'
   | 'Right Stuff'
   | 'Really Stupid'
@@ -54,6 +56,16 @@ export const SKILLS: Record<SkillName, Skill> = {
   Catch: {
     name: 'Catch',
     description: 'Once per turn, re-roll a failed Agility test to catch the ball.',
+    category: 'Agility'
+  },
+  Sprint: {
+    name: 'Sprint',
+    description: 'This player may attempt to Rush three times per activation instead of two.',
+    category: 'Agility'
+  },
+  'Sure Feet': {
+    name: 'Sure Feet',
+    description: 'Once per turn, re-roll a failed Rush attempt.',
     category: 'Agility'
   },
   'Throw Team-mate': {
